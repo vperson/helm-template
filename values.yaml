@@ -1,0 +1,209 @@
+# deployment中的app和version用于istio中使用
+# fullnameOverride和Chart.yaml中的name保持一致
+fullnameOverride: "app-template"
+# 选择部署的namespace
+namespaceOverride: "dev-system"
+# Istio需要一个label来指定版本,例如: latest、test、canary等
+version: latest
+# 副本数,如果没有开启HPA这里直接控制副本数,如果开启HPA副本数为1
+replicaCount: 2
+# 部署的环境可以通过一个value.yaml控制所有环境或者通过不同环境不同values.yaml部署(推荐后者)，保留默认的values.yaml,
+# 不同环境的公共属性可以使用values.yaml关联,维护起来会麻烦一点,但是修改以后影响面最小
+deployEnv: dev
+
+# 副本控制器配置
+replicaController:
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 50%
+      maxUnavailable: 0
+
+hub: "registry-vpc.cn-hangzhou.aliyuncs.com"
+
+image:
+  hub: ""
+  repository: acs/kube-apiserver
+  tag: v1.16.9-aliyun.1
+  pullPolicy: IfNotPresent
+
+# 这里是例子最好能在里面再封装一层
+command:
+  - -javaagent:/skywalking/agent/skywalking-agent.jar
+
+# 这里是例子最好能在里面再封装一层，比如--spring.profiles.active可以统一填写，环境选用上面的deployEnv
+args:
+  - --spring.profiles.active=prod
+  - --spring.cloud.consul.host=consul.xiaomai5.com
+  - --spring.cloud.consul.config.acl-token=98a6464d-b46c-44b5-9a60-5eef5267f499
+
+imagePullSecrets:
+  - default
+
+# 指定保留此 Deployment 的多少个旧有 ReplicaSet。其余的 ReplicaSet 将在后台被垃圾回收。 默认情况下，此值为 20
+revisionHistoryLimit: 20
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+#  prometheus.io/path: "prometheus"
+#  prometheus.io/port: "80"
+#  prometheus.io/scrape: "false"
+#  sidecar.istio.io/inject: "false"
+
+podSecurityContext: {}
+# fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+# readOnlyRootFilesystem: true
+# runAsNonRoot: true
+# runAsUser: 1000
+
+# service配置,deployment的ports也会引用
+service:
+  type: ClusterIP
+  # 主业务的端口,如果添加了自定义的sidecar可以自定义端口
+  masterPorts:
+    - name: http
+      protocol: tcp
+      port: 80
+      # istio中指定端口使用的协议在1.7之前是通过:协议-name的方式,之后的版本是通过这里指定
+      appProtocol: ""
+    - name: https
+      protocol: tcp
+      port: 443
+      appProtocol: ""
+
+ingress:
+  enabled: false
+  annotations: {}
+  # kubernetes.io/ingress.class: nginx
+  # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths: []
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+  requests:
+    cpu: 1000m
+    memory: 1024Mi
+
+# 健康检查
+readinessProbe: {}
+#  httpGet:
+#    scheme: HTTP
+#    path: /actuator/info
+#    port: 8001
+#  initialDelaySeconds: 20
+#  periodSeconds: 3
+#  timeoutSeconds: 10
+#  failureThreshold: 4
+#  successThreshold: 2
+
+livenessProbe: {}
+#  httpGet:
+#    scheme: HTTP
+#    path: /actuator/info
+#    port: 8001
+#  initialDelaySeconds: 180
+#  periodSeconds: 5
+#  timeoutSeconds: 3
+#  failureThreshold: 10
+#  successThreshold: 1
+
+# 挂载设置
+volumes: []
+#  - name: localtime
+#    hostPath:
+#      path: /etc/localtime
+
+volumeMounts: []
+#  - name: localtime
+#    mountPath: /etc/localtime
+#    readOnly: true
+
+# HPA水平自动伸缩
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# skywalking不在业务的镜像中，通过init容器将skywalking相关的配置文件复制到业务容器中
+skywalking:
+  enabled: false
+  # skywalking初始化镜像
+  image:
+    hub: registry-vpc.cn-hangzhou.aliyuncs.com
+    repository: xxxxx/skywalking-agent-aliyun
+    tag: v1.0.0
+    pullPolicy: Always
+  mount:
+    # 挂载到init容器中的路径,用于存储来自source的skywalking的配置
+    mountPath: /skywalking
+    name: skywalking-agent
+    # 基础镜像中存储skywalking的路径,路径格式:/skywalking/agent/{bin,config...}
+    source: /opt/skywalking
+  env:
+    # skywalking后端服务器地址
+    SW_AGENT_COLLECTOR_BACKEND_SERVICES: tracing-analysis-dc-hz-internal.aliyuncs.com:8000
+    # skywalking命名空间
+    SW_AGENT_NAMESPACE: dev
+    # 聚合服务名字
+    SW_AGENT_NAME: app-template:443
+    # 验证信息
+    SW_AGENT_AUTHENTICATION: xxxxx_prod
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app
+              operator: In
+              values:
+                - app-template
+        topologyKey: kubernetes.io/hostname
+#  nodeAffinity:
+#    preferredDuringSchedulingIgnoredDuringExecution:
+#      - weight: 1
+#        preference:
+#          matchExpressions:
+#            - key: kubernetes.io/arch
+#              operator: In
+#              values:
+#                - amd64
+
+nodeSelector: {}
+
+tolerations: []
+
+# host别名设置
+hostAliases:
+  - ip: 10.0.0.1
+    hostnames:
+      - foo.local
+      - bar.local

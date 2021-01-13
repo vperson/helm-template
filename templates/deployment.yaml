@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "app-template.fullname" . }}
+  {{- with .Values.namespaceOverride }}
+  namespace: {{ . }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/name: {{ include "app-template.fullname" . }}
+    app: {{ include "app-template.fullname" . }}
+    version: {{ .Values.version | default "latest"}}
+spec:
+  {{- if .Values.replicaController }}
+  {{- toYaml .Values.replicaController | nindent 2 }}
+  {{- end }}
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit | int | default 20 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "app-template.fullname" . }}
+      app: {{ include "app-template.fullname" . }}
+      version: {{ .Values.version | default "latest"}}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app.kubernetes.io/name: {{ include "app-template.fullname" . }}
+        app: {{ include "app-template.fullname" . }}
+        version: {{ .Values.version | default "latest"}}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "app-template.serviceAccountName" . }}
+      securityContext:
+      {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if or .Values.skywalking.enabled }}
+      initContainers:
+      {{- if .Values.skywalking.enabled }}
+        - name: skywalking-agent
+          imagePullPolicy: {{ .Values.skywalking.image.pullPolicy }}
+          command:
+            - sh
+          args:
+            - -c
+            - cp -r {{ .Values.skywalking.mount.source }}/* {{ .Values.skywalking.mount.mountPath }}
+          volumeMounts:
+            - mountPath: {{ .Values.skywalking.mount.mountPath }}
+              name: {{ .Values.skywalking.mount.name }}
+      {{- end }}
+      {{- end }}
+      containers:
+        - name: {{ include "app-template.fullname" . }}
+          securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- if .Values.image.hub }}
+          image: "{{ .Values.image.hub }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          {{- else }}
+          image: "{{ .Values.hub }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          {{- end }}
+          {{- with .Values.command }}
+          command:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+          args:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if or .Values.skywalking.enabled }}
+          env:
+          {{- range $key, $val := .Values.skywalking.env }}
+            - name: {{ $key }}
+              value: {{ $val }}
+          {{- end }}
+          {{- end }}
+          ports:
+          {{- range .Values.service.masterPorts }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol | upper }}
+          {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+          {{- toYaml . |nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+      {{- toYaml .Values.resources | nindent 12 }}
+      {{- if or .Values.skywalking.enabled .Values.volumes }}
+          volumeMounts:
+      {{- if .Values.skywalking.enabled }}
+            - mountPath: {{ .Values.skywalking.mount.mountPath }}
+              name: {{ .Values.skywalking.mount.name }}
+      {{- end }}
+      {{- end }}
+      {{- if or .Values.skywalking.enabled .Values.volumes }}
+      volumes:
+        {{- if .Values.skywalking.enabled }}
+        - name: {{ .Values.skywalking.mount.name }}
+          emptyDir: {}
+        {{- end }}
+        {{- with .Values.volumes}}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+  {{- toYaml . | nindent 8 }}
+  {{- end }}
+      {{- with .Values.hostAliases }}
+      hostAliases:
+    {{- toYaml . | nindent 8 }}
+  {{- end }}

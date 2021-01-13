@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "app-template.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "app-template.fullname" . }}
+    app: {{ include "app-template.fullname" . }}
+    version: {{ .Values.version | default "latest"}}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    {{- range .Values.service.masterPorts }}
+    - port: {{ .port }}
+      targetPort: {{ .name }}
+      protocol: {{ .protocol }}
+      name: {{ .name }}
+      {{- if .appProtocol }}
+      appProtocol: {{ .appProtocol }}
+      {{- end }}
+    {{- end }}
+  selector:
+    app.kubernetes.io/name: {{ include "app-template.fullname" . }}
+    app: {{ include "app-template.fullname" . }}
+    version: {{ .Values.version | default "latest"}}
