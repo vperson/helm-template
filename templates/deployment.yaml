@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "get.fullname" . }}
+  name: {{ include "get.fullname" . }}-{{ .Values.version | default "latest" }}
   namespace: {{ template "get.namespace" . }}
   labels:
     {{- include "get.labels" . | nindent 4 }}
@@ -77,7 +77,6 @@ spec:
           {{- end }}
           {{- else }}
           {{- end }}
-
           {{- if .Values.service.ports }}
           ports:
           {{- range $key, $val := .Values.service.ports }}
