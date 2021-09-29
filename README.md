@@ -39,6 +39,11 @@ $ tree .
 helm template .
 ```
 
+一般情况下我们更新最多的就是image的tag了，每次生成的时候不需要手动修改values.yaml的值，只需要通过helm的命令行传参就可以：
+```shell
+helm template . --set image.tag=v1.0.0
+```
+
 
 # 多环境使用
 如果一个项目有过个环境怎么办，是不是要修改values.yaml？
