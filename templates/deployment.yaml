@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "get.fullname" . }}
+  namespace: {{ template "get.namespace" . }}
+  labels:
+    {{- include "get.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.rollingUpdate.maxSurge | default "50%" }}
+      maxUnavailable: {{ .Values.rollingUpdate.maxUnavailable | default "0" }}
+  selector:
+    matchLabels:
+      {{- include "get.selectorLabels" . | nindent 6 }}
+      {{- include "get.istio.version" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "get.selectorLabels" . | nindent 8 }}
+        {{- include "get.istio.version" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "get.serviceAccountName" . }}
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }} 
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ include "get.name" . }}
+          {{- if .Values.securityContext }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}  
+          {{- if .Values.hub }}
+          image: {{ .Values.hub }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}
+          {{ else }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag | default "latest"}}
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if and .Values.env  }}
+          {{- with .Values.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.service.ports }}
+          ports:
+          {{- range $key, $val := .Values.service.ports }}
+            - name: {{ $val.name  }}
+              containerPort: {{ $val.port }}
+              protocol: {{ $val.protocol }}
+          {{- end }}
+          {{- end }}   
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+             {{- toYaml .| nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+              {{- toYaml .| nindent 12 }}
+          {{- end }}
+          {{- if .Values.resources }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+             {{- toYaml .| nindent 12 }}
+          {{- end }}          
+          {{- with .Values.sidecar }}
+              {{- toYaml . | nindent 8 }}
+          {{- end }}
+      {{- if and .Values.volumes .Values.downwardAPI.enabled }}
+      {{- with .Values.volumes }}
+      volumes:
+         {{- toYaml . | nindent 8 }}
+         {{- include "get.downward.api" . | nindent 8 }}
+      {{- end }}
+      {{- else if .Values.volumes }}
+      {{- with .Values.volumes }}
+       volumes:
+         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- else if .Values.downwardAPI.enabled }}
+      {{- if eq .Values.downwardAPI.type "file" }}
+       volumes:
+         {{- include "get.downward.api" . | nindent 8 }}      
+      {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,200 @@
+# Default values for app-template.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+hub: ""
+
+# 这两个名字最好统一
+nameOverride: "xxxx"
+fullnameOverride: "xxxx"
+# 服务运行环境这个值会用于label,例如: dev/rc/canary/prod
+# 禁止使用env和k8s的env关键字冲突
+environment: "dev"
+# istio特定标签用于deployment资源对象,istio官方要求给deployment打上app和version的label
+# 详细参考: https://istio.io/latest/docs/ops/deployment/requirements/
+version: "latest"
+# 建议namespace是确定的,而不是通过helm的参数传入的,业务应用为了安全最好是确认namespace
+namespaceOverride: ""
+# 滚动更新配置
+rollingUpdate:
+  # 默认值50%
+  maxSurge: 20%
+  # 默认值0,如果服务只能单副本的,这里需要设置成>=1
+  maxUnavailable: 0
+
+image:
+  # 镜像仓库
+  repository: nginx
+  pullPolicy: IfNotPresent
+  # 镜像版本
+  tag: ""
+
+# 镜像拉取secret可以多个 
+imagePullSecrets: []
+
+# 是否创建serviceAccount，建议每个服务都创建一个以服务名的account,可以做服务认证，也可以给后期的服务网格使用
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# 端口信息，用于填充deployment和service
+service:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      # 是否从svc中开放出来
+      svc: true
+      # TCP\UDP\SCTP
+      protocol: TCP
+      # 确定应用的协议,在istio中很依赖这个配置
+      appProtocol: ""
+    - name: rpc
+      port: 7070
+      svc: true
+      protocol: TCP
+      appProtocol: "gRPC"  
+
+# 存活探针,影响pod的生命周期
+livenessProbe:
+  httpGet:
+    port: http
+    scheme: HTTP
+    #path: /index.html
+  # 建议设置的比readinessProbe的高
+  initialDelaySeconds: 100
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
+
+#就绪检查探针,影响pod能否加入svc的负载均衡,和影响滚动更新
+readinessProbe:
+  httpGet:
+    # 这里可以使用数字也可以使用命名端口,建议使用命名端口,这样修改values.yaml的时候只需要修改上面的service的端口即可,这里不需要修改
+    port: http
+    scheme: HTTP
+    #path: /test.html
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+## e.g. static environment variable:
+##  - name: DEMO_GREETING
+##    value: "Hello from the environment"
+##
+## e.g. secret environment variable:
+## - name: USERNAME
+##   valueFrom:
+##     secretKeyRef:
+##       name: mysecret
+##       key: username    
+env:
+  - name: DEMO_GREETING
+    value: "Hello from the environment"
+
+
+# 根据业务需求设置资源,如果不知道服务的资源使用情况可以先不配置,发布后运行一段时间观察服务的资源使用情况
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+   
+
+# 全局的可挂载卷
+volumes: []
+
+# 主容器的挂载点;sidecar的挂载点单独写在sidecar里面
+volumeMounts: []
+
+# 暂时不支持
+# 是否开启downwardAPI
+# 详细请参考: https://kubernetes.io/zh/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/
+downwardAPI:
+  enabled: false
+  # 支持两种模式: env和file
+  type: "env"
+
+# 比如kafka使用域名连接,默认解析地址是公网的,希望容器内的服务使用内网连接
+hostAliases: []
+   # e.g.
+   #  - ip: "127.0.0.1"
+   #    hostnames:
+   #    - "foo.local"
+   #    - "bar.local"
+        
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+ 
+podAnnotations:
+  filebeat.harvest: "true"
+  filebeat.index: "pc-ui"
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+  # podAntiAffinity:
+  #    # 强制策略
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #   - labelSelector:
+  #       matchExpressions:
+  #       - key: app
+  #         operator: In
+  #         values:
+  #         - busybox-pod
+  #     topologyKey: kubernetes.io/hostname
+  
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+  #
+  
+# 初始化容器一般用于一些准备工作
+initContainers: []
+## e.g. 
+#  - name: init-myservice
+#    image: busybox:1.28
+#    command: ['sh', '-c', "until nslookup myservice.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done"]    
+
+# 一些需要手动注入的容器,比如config reload服务
+sidecar: []
+        #  - name: app-template1
+        #    image: nginx:latest
+        #    imagePullPolicy: IfNotPresent
