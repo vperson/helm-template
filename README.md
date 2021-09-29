@@ -44,6 +44,17 @@ helm template .
 helm template . --set image.tag=v1.0.0
 ```
 
+# 支持的功能
+* 创建serviceAccount
+* 环境变量的注入
+* 资源限制
+* volumes挂载
+* downwardAPI
+* hostAliases
+* sidecar
+* initContainerss
+
+PS: 日常常用到的都已经抽象到values.yaml中了
 
 # 多环境使用
 如果一个项目有过个环境怎么办，是不是要修改values.yaml？
