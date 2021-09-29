@@ -95,7 +95,7 @@ downwardAPI配置
 */}}
 {{- define "get.downward.api" -}}
 {{- if .Values.downwardAPI.enabled }}
-{{- if eq .Values.downwardAPI.type "env" }}
+{{- if eq .Values.downwardAPI.type "env" -}}
 - name: MY_NODE_NAME
   valueFrom:
     fieldRef:

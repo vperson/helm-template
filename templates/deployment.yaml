@@ -53,12 +53,31 @@ spec:
           image: {{ .Values.image.repository }}:{{ .Values.image.tag | default "latest"}}
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if and .Values.env  }}
+          {{- if and .Values.env .Values.downwardAPI.enabled }}
+          {{- if eq .Values.downwardAPI.type "env" }}
+          {{- with .Values.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+            {{- include "get.downward.api" . | nindent 12 }}
+          {{- else }}
           {{- with .Values.env }}
           env:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- end }}
+	  {{- else if .Values.env }}
+          {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- else if .Values.downwardAPI.enabled }}
+          {{- if eq .Values.downwardAPI.type "env" }}
+          env:
+            {{- include "get.downward.api" . | nindent 12 }}
+          {{- end }}
+          {{- else }}
+          {{- end }}
+
           {{- if .Values.service.ports }}
           ports:
           {{- range $key, $val := .Values.service.ports }}

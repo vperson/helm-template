@@ -118,8 +118,9 @@ volumeMounts: []
 # 是否开启downwardAPI
 # 详细请参考: https://kubernetes.io/zh/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/
 downwardAPI:
-  enabled: false
-  # 支持两种模式: env和file
+  enabled: true
+  # 支持一种模式: env
+  # 本想支持volumes,有bug一直没解决
   type: "env"
 
 # 比如kafka使用域名连接,默认解析地址是公网的,希望容器内的服务使用内网连接
