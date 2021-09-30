@@ -30,6 +30,12 @@ image:
   # 镜像版本
   tag: ""
 
+
+command: []
+
+args: []
+
+
 # 镜像拉取secret可以多个 
 imagePullSecrets: []
 
@@ -199,3 +205,8 @@ sidecar: []
         #  - name: app-template1
         #    image: nginx:latest
         #    imagePullPolicy: IfNotPresent
+        #
+
+
+# 一些相对固定不经常修改的参数
+workingDir: ""

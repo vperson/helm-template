@@ -53,6 +53,15 @@ spec:
           image: {{ .Values.image.repository }}:{{ .Values.image.tag | default "latest"}}
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.workingDir }}
+          workingDir: {{ .Values.workingDir }}
+          {{- end }}
+          {{- with .Values.command }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- if and .Values.env .Values.downwardAPI.enabled }}
           {{- if eq .Values.downwardAPI.type "env" }}
           {{- with .Values.env }}
